@@ -1,0 +1,3 @@
+{
+  "rust-analyzer.linkedProjects": ["./werver-route/Cargo.toml", "./Cargo.toml"]
+}
