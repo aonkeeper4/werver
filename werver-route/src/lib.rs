@@ -94,7 +94,7 @@ fn expand_route(attr: &RouteMeta, input: &ItemFn) -> syn::Result<TokenStream2> {
         .collect();
 
     let result = quote! {
-        fn #handler_name(args: Vec<String>) -> crate::http_server::RouteParseResult {
+        fn #handler_name(args: Vec<String>) -> RouteParseResult {
             if args.len() != #num_inputs {
                 return Err(format!("Incorrect number of arguments given (expected {}, got {})", #num_inputs, args.len()));
             }

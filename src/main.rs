@@ -7,8 +7,9 @@ use http_server::HttpServer;
 #[allow(non_upper_case_globals)]
 mod routes {
     use super::dice_roll::DiceRoll;
-    use super::http_server::{HttpStatus, Page, Response};
+    use super::http_server::{HttpStatus, Page, Response, RouteParseResult};
     use lazy_static::lazy_static;
+    use rand::{thread_rng, Rng};
     use std::collections::HashMap;
     use std::thread::sleep;
     use std::time::Duration;
@@ -51,14 +52,29 @@ mod routes {
             Page::new("pages/roll.html".to_string(), Some(args)),
         ))
     }
+
+    #[route(GET, "/random")]
+    pub fn route_random(low: u32, high: u32) -> RouteParseResult {
+        let mut rng = thread_rng();
+        let args = HashMap::from([
+            ("result".to_string(), rng.gen_range(low..=high).to_string()),
+            ("low".to_string(), low.to_string()),
+            ("high".to_string(), high.to_string()),
+        ]);
+        Ok(Response::new(
+            HttpStatus::Ok,
+            Page::new("pages/random.html".to_string(), Some(args)),
+        ))
+    }
 }
 
 fn main() {
-    let mut conn_handler = HttpServer::new();
-    conn_handler.add_route(&routes::route_home);
-    conn_handler.add_route(&routes::route_error);
-    conn_handler.add_route(&routes::route_sleep);
-    conn_handler.add_route(&routes::route_roll);
+    let mut server = HttpServer::new();
+    server.add_route(&routes::route_home);
+    server.add_route(&routes::route_error);
+    server.add_route(&routes::route_sleep);
+    server.add_route(&routes::route_roll);
+    server.add_route(&routes::route_random);
 
-    conn_handler.listen("127.0.0.1:7878", 4);
+    server.listen("127.0.0.1:7878", 4);
 }
