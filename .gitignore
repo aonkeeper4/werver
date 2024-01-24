@@ -1,2 +1,2 @@
-target/
-werver-route/target/
+/target
+/werver-route/target
