@@ -15,9 +15,7 @@ i started with the template given by [the rust book chapter 20](https://doc.rust
   - i think i can nest more crates and it will work ?? maybe
 - make sure everything is tidy (all generated imports qualified correctly, file stuff)
   - move `main.rs` to outer crate and make this a lib
-- fix where the import errors come from
-  - when you forget to use `RouteParseResult` it shows up as in the macro first and thats really annoying
-  - there are probably other cases where this happens
+- ~~fix where the import errors come from~~ done! unless im missing other cases of this
 - generally clean stuff up (code quality review)
   - check whether i actually need all those `clone`s
   - read up on how to actually do multithreaded stuff in rust and rework as needed (surely it wont be too much :clueless:)

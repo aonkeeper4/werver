@@ -41,7 +41,7 @@ mod routes {
     }
 
     #[route(GET, "/roll")]
-    pub fn route_roll(dice: DiceRoll) -> RouteParseResult {
+    pub fn route_roll(dice: &DiceRoll) -> RouteParseResult {
         let rolled = dice.roll();
         let args = HashMap::from([
             ("dice".to_string(), dice.to_english()),

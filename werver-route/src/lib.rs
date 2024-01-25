@@ -3,7 +3,10 @@ use proc_macro::{self, TokenStream};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
-use syn::{punctuated::Punctuated, FnArg, Ident, ItemFn, LitStr, Pat, PatIdent, PatType, Token};
+use syn::{
+    punctuated::Punctuated, FnArg, Ident, ItemFn, LitStr, Pat, PatIdent, PatType, Token, Type,
+    TypeReference,
+};
 
 #[allow(dead_code)]
 struct RouteMeta {
@@ -25,10 +28,8 @@ impl Parse for RouteMeta {
 fn expand_route(attr: &RouteMeta, input: &ItemFn) -> syn::Result<TokenStream2> {
     // add full route w/ args in incorrect args error
     let name = &input.sig.ident;
-    let handler_name: Ident = syn::parse_str(format!("_handler_{name}").as_str())?;
     let inputs = &input.sig.inputs;
     let num_inputs = inputs.len();
-    let body = &input.block;
     let vis = &input.vis;
 
     let RouteMeta {
@@ -73,6 +74,7 @@ fn expand_route(attr: &RouteMeta, input: &ItemFn) -> syn::Result<TokenStream2> {
         .iter()
         .map(|(arg_name, _)| format!("{{{arg_name}}}"))
         .collect();
+    let args_without_types: Vec<_> = args.iter().map(|(arg, _)| arg).collect();
     let route_str = route_prefix + "/" + &join(arg_names, "/");
 
     let parse_inputs: TokenStream2 = args
@@ -80,34 +82,50 @@ fn expand_route(attr: &RouteMeta, input: &ItemFn) -> syn::Result<TokenStream2> {
         .enumerate()
         .map(|(i, (arg_name, ty))| {
             let arg_name_str = arg_name.to_string();
-            quote! {
-                let #arg_name = match args[#i].parse::<#ty>() {
-                    Ok(x) => x,
-                    Err(e) => {
-                        return Err(format!(
-                            "Failed to parse argument `{}` in route `{}`: {}",
-                        #arg_name_str, #route_str, e))
-                    },
-                };
+            if let Type::Reference(TypeReference { elem, .. }) = ty.as_ref() {
+                quote! {
+                    let ref #arg_name = match args[#i].parse::<#elem>() {
+                        Ok(x) => x,
+                        Err(e) => {
+                            return Err(format!(
+                                "Failed to parse argument `{}` in route `{}`: {}",
+                            #arg_name_str, #route_str, e))
+                        },
+                    };
+                }
+            } else {
+                quote! {
+                    let #arg_name = match args[#i].parse::<#ty>() {
+                        Ok(x) => x,
+                        Err(e) => {
+                            return Err(format!(
+                                "Failed to parse argument `{}` in route `{}`: {}",
+                            #arg_name_str, #route_str, e))
+                        },
+                    };
+                }
             }
         })
         .collect();
 
     let result = quote! {
-        fn #handler_name(args: Vec<String>) -> RouteParseResult {
-            if args.len() != #num_inputs {
-                return Err(format!("Incorrect number of arguments given (expected {}, got {})", #num_inputs, args.len()));
-            }
-
-            #parse_inputs
-            #body
-        }
 
         lazy_static! {
+            #[allow(clippy::non_upper_case_globals)]
             #vis static ref #name: crate::http_server::Route = crate::http_server::Route::new(
                 crate::http_server::RequestType::#request_type,
                 vec![#(#prefixes_vec.to_string()),*],
-                #handler_name,
+                |args| {
+                    if args.len() != #num_inputs {
+                        return Err(format!("Incorrect number of arguments given (expected {}, got {})", #num_inputs, args.len()));
+                    }
+
+                    #parse_inputs
+
+                    #[allow(clippy::unnecessary_wraps)]
+                    #input
+                    #name(#(#args_without_types),*)
+                }
             );
         }
     };
