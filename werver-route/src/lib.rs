@@ -1,11 +1,12 @@
 use itertools::join;
 use proc_macro::{self, TokenStream};
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{quote, quote_spanned};
-use syn::parse::{Parse, ParseStream, Result};
+use quote::quote;
+use syn::parse::{Parse, ParseStream};
+use syn::punctuated::Punctuated;
 use syn::{
-    parse_macro_input, punctuated::Punctuated, spanned::Spanned, Expr, FnArg, Ident, ItemFn,
-    LitStr, Pat, PatIdent, PatType, Token, Type, TypeReference, Visibility,
+    parse_macro_input, FnArg, Ident, ItemFn, LitStr, Pat, PatIdent, PatType, Token, Type,
+    TypeReference,
 };
 
 #[allow(dead_code)]
