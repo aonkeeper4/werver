@@ -25,7 +25,7 @@ i started with the template given by [the rust book chapter 20](https://doc.rust
   - `ThreadPool` allows errors to be returned in the closure given to `execute` but only prints them atm
   - really need ability for custom error handling i think. maybe just pass another closure to `execute` for that idk
   - allow custom body for the `pool.execute` closure in `listen`?
-  - WAIT another attribute macro for that would be cool like you have a bunch of `#[routes]` and then a `#[error_handler]`
+  - WAIT another attribute macro for that would be cool like you have a bunch of `#[route]`s and then a `#[error_handler]`
     - maybe other handlers then?
 - put `HttpServer` into a builder pattern
   - would be cool
@@ -35,4 +35,6 @@ i started with the template given by [the rust book chapter 20](https://doc.rust
   - serve other stuff than just bare html
 - route trees? subroutes? routes with variable arguments??
   - more attribute macros oooohhh
+- make errors in macros more descriptive
+  - figure out and use proper spanned errors
 - publish to crates.io!! (once ive got at least most of this)

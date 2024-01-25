@@ -4,7 +4,6 @@ pub mod thread_pool;
 
 use http_server::HttpServer;
 
-#[allow(non_upper_case_globals)]
 mod routes {
     use super::dice_roll::DiceRoll;
     use super::http_server::{HttpStatus, Page, Response, RouteParseResult};
@@ -53,7 +52,10 @@ mod routes {
     }
 
     #[route(GET, "/random")]
-    pub fn route_random(low: u32, high: u32) -> RouteParseResult {
+    pub fn route_random(low: i32, high: i32) -> RouteParseResult {
+        // if low == 69 || high == 69 {
+        //     return Err("nice error idiot".to_string());
+        // }
         let mut rng = thread_rng();
         let args = HashMap::from([
             ("result".to_string(), rng.gen_range(low..=high).to_string()),

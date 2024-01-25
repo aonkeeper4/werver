@@ -2,32 +2,31 @@ use itertools::join;
 use proc_macro::{self, TokenStream};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::parse::{Parse, ParseStream};
+use syn::parse::{Parse, ParseStream, Result as ParseResult};
 use syn::punctuated::Punctuated;
 use syn::{
     parse_macro_input, FnArg, Ident, ItemFn, LitStr, Pat, PatIdent, PatType, Token, Type,
     TypeReference,
 };
 
-#[allow(dead_code)]
 struct RouteMeta {
     request_type: Ident,
-    comma_1: Token![,],
     prefixes: Punctuated<LitStr, Token![|]>,
 }
 
 impl Parse for RouteMeta {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream) -> ParseResult<Self> {
+        let request_type = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let prefixes = Punctuated::parse_terminated(input)?;
         Ok(Self {
-            request_type: input.parse()?,
-            comma_1: input.parse()?,
-            prefixes: Punctuated::parse_terminated(input)?,
+            request_type,
+            prefixes,
         })
     }
 }
 
 fn expand_route(attr: &RouteMeta, input: &ItemFn) -> syn::Result<TokenStream2> {
-    // add full route w/ args in incorrect args error
     let name = &input.sig.ident;
     let inputs = &input.sig.inputs;
     let num_inputs = inputs.len();
@@ -36,7 +35,6 @@ fn expand_route(attr: &RouteMeta, input: &ItemFn) -> syn::Result<TokenStream2> {
     let RouteMeta {
         request_type,
         prefixes,
-        ..
     } = attr;
     let route_prefix = match prefixes.first() {
         Some(v) => v.value(),
@@ -76,7 +74,7 @@ fn expand_route(attr: &RouteMeta, input: &ItemFn) -> syn::Result<TokenStream2> {
         .map(|(arg_name, _)| format!("{{{arg_name}}}"))
         .collect();
     let args_without_types: Vec<_> = args.iter().map(|(arg, _)| arg).collect();
-    let route_str = route_prefix + "/" + &join(arg_names, "/");
+    let route_str = route_prefix.clone() + "/" + &join(arg_names, "/");
 
     let parse_inputs: TokenStream2 = args
         .iter()
@@ -85,25 +83,17 @@ fn expand_route(attr: &RouteMeta, input: &ItemFn) -> syn::Result<TokenStream2> {
             let arg_name_str = arg_name.to_string();
             if let Type::Reference(TypeReference { elem, .. }) = ty.as_ref() {
                 quote! {
-                    let ref #arg_name = match args[#i].parse::<#elem>() {
-                        Ok(x) => x,
-                        Err(e) => {
-                            return Err(format!(
-                                "Failed to parse argument `{}` in route `{}`: {}",
-                            #arg_name_str, #route_str, e))
-                        },
-                    };
+                    let ref #arg_name = args[#i].parse::<#elem>().map_err(|e| format!(
+                        "Failed to parse argument `{}` in route `{}`: {}",
+                        #arg_name_str, #route_str, e)
+                    )?;
                 }
             } else {
                 quote! {
-                    let #arg_name = match args[#i].parse::<#ty>() {
-                        Ok(x) => x,
-                        Err(e) => {
-                            return Err(format!(
-                                "Failed to parse argument `{}` in route `{}`: {}",
-                            #arg_name_str, #route_str, e))
-                        },
-                    };
+                    let #arg_name = args[#i].parse::<#ty>().map_err(|e| format!(
+                        "Failed to parse argument `{}` in route `{}`: {}",
+                        #arg_name_str, #route_str, e)
+                    )?;
                 }
             }
         })
@@ -129,12 +119,11 @@ fn expand_route(attr: &RouteMeta, input: &ItemFn) -> syn::Result<TokenStream2> {
                             if args.len() != #num_inputs {
                                 return Err(format!("Incorrect number of arguments given (expected {}, got {})", #num_inputs, args.len()));
                             }
-
                             #parse_inputs
 
                             #[allow(clippy::unnecessary_wraps)]
                             #input
-                            #name(#(#args_without_types),*)
+                            #name(#(#args_without_types),*).map_err(|s| format!("Error handling route `{}`: {}", #route_prefix, s))
                         },
                     ))));
 
@@ -142,9 +131,6 @@ fn expand_route(attr: &RouteMeta, input: &ItemFn) -> syn::Result<TokenStream2> {
                 }
             }
         }
-
-
-
     };
     Ok(result)
 }
