@@ -1,11 +1,11 @@
 use itertools::join;
 use proc_macro::{self, TokenStream};
 use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
-use syn::parse::{Parse, ParseStream};
+use quote::{quote, quote_spanned};
+use syn::parse::{Parse, ParseStream, Result};
 use syn::{
-    punctuated::Punctuated, FnArg, Ident, ItemFn, LitStr, Pat, PatIdent, PatType, Token, Type,
-    TypeReference,
+    parse_macro_input, punctuated::Punctuated, spanned::Spanned, Expr, FnArg, Ident, ItemFn,
+    LitStr, Pat, PatIdent, PatType, Token, Type, TypeReference, Visibility,
 };
 
 #[allow(dead_code)]
@@ -109,33 +109,49 @@ fn expand_route(attr: &RouteMeta, input: &ItemFn) -> syn::Result<TokenStream2> {
         .collect();
 
     let result = quote! {
+            #[allow(non_camel_case_types)]
+            #vis struct #name;
 
-        lazy_static! {
-            #[allow(clippy::non_upper_case_globals)]
-            #vis static ref #name: crate::http_server::Route = crate::http_server::Route::new(
-                crate::http_server::RequestType::#request_type,
-                vec![#(#prefixes_vec.to_string()),*],
-                |args| {
-                    if args.len() != #num_inputs {
-                        return Err(format!("Incorrect number of arguments given (expected {}, got {})", #num_inputs, args.len()));
-                    }
+            // basically just an expanded lazy_static!
+            impl std::ops::Deref for #name {
+            type Target = crate::http_server::Route;
 
-                    #parse_inputs
+            fn deref(&self) -> &Self::Target {
+                static ONCE: std::sync::Once = std::sync::Once::new();
+                static mut VALUE: *mut crate::http_server::Route = 0 as *mut crate::http_server::Route;
 
-                    #[allow(clippy::unnecessary_wraps)]
-                    #input
-                    #name(#(#args_without_types),*)
+                unsafe {
+                    ONCE.call_once(|| VALUE = Box::into_raw(Box::new(crate::http_server::Route::new(
+                        crate::http_server::RequestType::#request_type,
+                        vec![#(#prefixes_vec.to_string()),*],
+                        |args| {
+                            if args.len() != #num_inputs {
+                                return Err(format!("Incorrect number of arguments given (expected {}, got {})", #num_inputs, args.len()));
+                            }
+
+                            #parse_inputs
+
+                            #[allow(clippy::unnecessary_wraps)]
+                            #input
+                            #name(#(#args_without_types),*)
+                        },
+                    ))));
+
+                    &*VALUE
                 }
-            );
+            }
         }
+
+
+
     };
     Ok(result)
 }
 
 #[proc_macro_attribute]
 pub fn route(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let attr = syn::parse_macro_input!(attr as RouteMeta);
-    let input = syn::parse_macro_input!(item as ItemFn);
+    let attr = parse_macro_input!(attr as RouteMeta);
+    let input = parse_macro_input!(item as ItemFn);
     expand_route(&attr, &input)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()

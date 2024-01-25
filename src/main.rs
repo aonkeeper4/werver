@@ -8,7 +8,6 @@ use http_server::HttpServer;
 mod routes {
     use super::dice_roll::DiceRoll;
     use super::http_server::{HttpStatus, Page, Response, RouteParseResult};
-    use lazy_static::lazy_static;
     use rand::{thread_rng, Rng};
     use std::collections::HashMap;
     use std::thread::sleep;
