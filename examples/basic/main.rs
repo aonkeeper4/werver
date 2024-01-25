@@ -1,23 +1,21 @@
-pub mod dice_roll;
-pub mod http_server;
-pub mod thread_pool;
+use werver::http_server::HttpServer;
 
-use http_server::HttpServer;
+pub mod dice_roll;
 
 mod routes {
     use super::dice_roll::DiceRoll;
-    use super::http_server::{HttpStatus, Page, Response, RouteParseResult};
     use rand::{thread_rng, Rng};
     use std::collections::HashMap;
     use std::thread::sleep;
     use std::time::Duration;
+    use werver::http_server::{HttpStatus, Page, Response, RouteParseResult};
     use werver_route::route;
 
     #[route(GET, "/" | "/home")]
     pub fn route_home() -> RouteParseResult {
         Ok(Response::new(
             HttpStatus::Ok,
-            Page::new("pages/meow.html".to_string(), None),
+            Page::new("examples/basic/pages/meow.html".to_string(), None),
         ))
     }
 
@@ -25,7 +23,7 @@ mod routes {
     pub fn route_error() -> RouteParseResult {
         Ok(Response::new(
             HttpStatus::Ok,
-            Page::new("pages/nonexistent.html".to_string(), None),
+            Page::new("examples/basic/pages/nonexistent.html".to_string(), None),
         ))
     }
 
@@ -34,7 +32,7 @@ mod routes {
         sleep(Duration::from_secs(secs));
         Ok(Response::new(
             HttpStatus::Ok,
-            Page::new("pages/nonexistent.html".to_string(), None),
+            Page::new("examples/basic/pages/nonexistent.html".to_string(), None),
         ))
     }
 
@@ -47,7 +45,7 @@ mod routes {
         ]);
         Ok(Response::new(
             HttpStatus::Ok,
-            Page::new("pages/roll.html".to_string(), Some(args)),
+            Page::new("examples/basic/pages/roll.html".to_string(), Some(args)),
         ))
     }
 
@@ -64,7 +62,7 @@ mod routes {
         ]);
         Ok(Response::new(
             HttpStatus::Ok,
-            Page::new("pages/random.html".to_string(), Some(args)),
+            Page::new("examples/basic/pages/random.html".to_string(), Some(args)),
         ))
     }
 }

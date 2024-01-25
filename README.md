@@ -11,16 +11,17 @@ i started with the template given by [the rust book chapter 20](https://doc.rust
 
 ## todos
 
-- rework `lazy_static` integration
-  - i think i can nest more crates and it will work ?? maybe
-- make sure everything is tidy (all generated imports qualified correctly, file stuff)
-  - move `main.rs` to outer crate and make this a lib
+- ~~rework `lazy_static` integration~~ boom done i just expanded the macro namually :peaceline:
+- ~~make sure everything is tidy (all generated imports qualified correctly, file stuff)~~ should be question mark
+  - ~~move `main.rs` to outer crate and make this a lib~~ done ! we have examples via `cargo run --example <example_name>` now :3
 - ~~fix where the import errors come from~~ done! unless im missing other cases of this
 - generally clean stuff up (code quality review)
-  - check whether i actually need all those `clone`s
+  - check whether i actually need all those `clone`s (im suspicious i do)
   - read up on how to actually do multithreaded stuff in rust and rework as needed (surely it wont be too much :clueless:)
   - tidy up apis
+    - generally just "should this be public" and "are my function signatures cool and based or cringe as hell"
 - rework codegen in `#[route]` (im sure theres better ways to do everything i did)
+  - just dicovered `quote_spanned` exists im sure its useful
 - do something about error handling in `HttpServer::listen`
   - `ThreadPool` allows errors to be returned in the closure given to `execute` but only prints them atm
   - really need ability for custom error handling i think. maybe just pass another closure to `execute` for that idk

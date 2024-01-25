@@ -105,15 +105,15 @@ fn expand_route(attr: &RouteMeta, input: &ItemFn) -> syn::Result<TokenStream2> {
 
             // basically just an expanded lazy_static!
             impl std::ops::Deref for #name {
-            type Target = crate::http_server::Route;
+            type Target = werver::http_server::Route;
 
             fn deref(&self) -> &Self::Target {
                 static ONCE: std::sync::Once = std::sync::Once::new();
-                static mut VALUE: *mut crate::http_server::Route = 0 as *mut crate::http_server::Route;
+                static mut VALUE: *mut werver::http_server::Route = 0 as *mut werver::http_server::Route;
 
                 unsafe {
-                    ONCE.call_once(|| VALUE = Box::into_raw(Box::new(crate::http_server::Route::new(
-                        crate::http_server::RequestType::#request_type,
+                    ONCE.call_once(|| VALUE = Box::into_raw(Box::new(werver::http_server::Route::new(
+                        werver::http_server::RequestType::#request_type,
                         vec![#(#prefixes_vec.to_string()),*],
                         |args| {
                             if args.len() != #num_inputs {
