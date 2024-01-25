@@ -38,4 +38,7 @@ i started with the template given by [the rust book chapter 20](https://doc.rust
   - more attribute macros oooohhh
 - make errors in macros more descriptive
   - figure out and use proper spanned errors
+- add all the cool stuff to my cargo.toml
+  - like descriptions and docs and repo link n stuff
+    - ohhhh fuc k. i have to write docs for everything :catresort:
 - publish to crates.io!! (once ive got at least most of this)
