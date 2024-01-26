@@ -83,7 +83,7 @@ fn expand_route(attr: &RouteMeta, input: &ItemFn) -> syn::Result<TokenStream2> {
             let arg_name_str = arg_name.to_string();
             if let Type::Reference(TypeReference { elem, .. }) = ty.as_ref() {
                 quote! {
-                    let ref #arg_name = args[#i].parse::<#elem>().map_err(|e| format!(
+                    let #arg_name = &args[#i].parse::<#elem>().map_err(|e| format!(
                         "Failed to parse argument `{}` in route `{}`: {}",
                         #arg_name_str, #route_str, e)
                     )?;
@@ -100,11 +100,11 @@ fn expand_route(attr: &RouteMeta, input: &ItemFn) -> syn::Result<TokenStream2> {
         .collect();
 
     let result = quote! {
-            #[allow(non_camel_case_types)]
-            #vis struct #name;
+        #[allow(non_camel_case_types)]
+        #vis struct #name;
 
-            // basically just an expanded lazy_static!
-            impl std::ops::Deref for #name {
+        // basically just an expanded lazy_static!
+        impl std::ops::Deref for #name {
             type Target = werver::http_server::Route;
 
             fn deref(&self) -> &Self::Target {

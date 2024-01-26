@@ -32,7 +32,7 @@ mod routes {
         sleep(Duration::from_secs(secs));
         Ok(Response::new(
             HttpStatus::Ok,
-            Page::new("examples/basic/pages/nonexistent.html".to_string(), None),
+            Page::new("examples/basic/pages/meow.html".to_string(), None),
         ))
     }
 
