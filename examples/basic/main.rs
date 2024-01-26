@@ -1,4 +1,6 @@
-use werver::http_server::HttpServer;
+use werver::http_server::{
+    ErrorHandler, ErrorPage, ErrorResponse, HttpServer, NotFoundHandler, NotFoundResponse, Page,
+};
 
 pub mod dice_roll;
 
@@ -8,11 +10,11 @@ mod routes {
     use std::collections::HashMap;
     use std::thread::sleep;
     use std::time::Duration;
-    use werver::http_server::{HttpStatus, Page, Response, RouteParseResult};
+    use werver::http_server::{HttpStatus, Page, QueryParseResult, Response};
     use werver_route::route;
 
     #[route(GET, "/" | "/meow")]
-    pub fn route_home() -> RouteParseResult {
+    pub fn route_home() -> QueryParseResult {
         Ok(Response::new(
             HttpStatus::Ok,
             Page::new("examples/basic/pages/meow.html".to_string(), None),
@@ -20,12 +22,12 @@ mod routes {
     }
 
     #[route(GET, "/error")]
-    pub fn route_error() -> RouteParseResult {
+    pub fn route_error() -> QueryParseResult {
         Err("oops".to_string())
     }
 
     #[route(GET, "/sleep")]
-    pub fn route_sleep(secs: u64) -> RouteParseResult {
+    pub fn route_sleep(secs: u64) -> QueryParseResult {
         sleep(Duration::from_secs(secs));
         Ok(Response::new(
             HttpStatus::Ok,
@@ -34,7 +36,7 @@ mod routes {
     }
 
     #[route(GET, "/roll")]
-    pub fn route_roll(dice: &DiceRoll) -> RouteParseResult {
+    pub fn route_roll(dice: &DiceRoll) -> QueryParseResult {
         let rolled = dice.roll();
         let args = HashMap::from([
             ("dice".to_string(), dice.to_english()),
@@ -47,7 +49,7 @@ mod routes {
     }
 
     #[route(GET, "/random")]
-    pub fn route_random(low: i32, high: i32) -> RouteParseResult {
+    pub fn route_random(low: i32, high: i32) -> QueryParseResult {
         if low.abs() == 69 || high.abs() == 69 {
             return Err("nice error idiot".to_string());
         }
@@ -65,7 +67,17 @@ mod routes {
 }
 
 fn main() {
-    let mut server = HttpServer::new();
+    let mut server = HttpServer::new(
+        NotFoundHandler::new(|| {
+            NotFoundResponse::new(Page::new("examples/basic/pages/404.html".to_string(), None))
+        }),
+        ErrorHandler::new(|e| {
+            ErrorResponse::new(ErrorPage::new(
+                "examples/basic/pages/error.html".to_string(),
+                e.to_string(),
+            ))
+        }),
+    );
     server.add_route(&routes::route_home);
     server.add_route(&routes::route_error);
     server.add_route(&routes::route_sleep);

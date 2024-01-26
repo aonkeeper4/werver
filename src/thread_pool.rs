@@ -1,41 +1,52 @@
 use std::{
-    fmt::Debug,
-    sync::{mpsc, Arc, Mutex},
+    sync::{
+        mpsc::{self, TryRecvError},
+        Arc, Mutex,
+    },
     thread,
     time::Instant,
 };
 
-pub struct ThreadPool<T: 'static, E: Debug + 'static> {
+pub struct ThreadPool<T: 'static, E: 'static, R: Send> {
     workers: Vec<Worker>,
     sender: Option<mpsc::Sender<Job<T, E>>>,
+    err_receiver: mpsc::Receiver<R>,
 }
 
 type Job<T, E> = Box<dyn FnOnce() -> Result<T, E> + Send + 'static>;
 
-impl<T: 'static, E: Debug + 'static> ThreadPool<T, E> {
+impl<T: 'static, E: 'static, R: Send + 'static> ThreadPool<T, E, R> {
     #[must_use]
     #[allow(clippy::missing_panics_doc)]
-    pub fn new(size: usize) -> Self {
+    pub fn new(size: usize, err_handler: fn(E) -> R) -> Self {
         assert!(size > 0);
 
-        let (sender, receiver) = mpsc::channel::<Job<T, E>>();
+        let (job_sender, job_receiver) = mpsc::channel::<Job<T, E>>();
+        let (err_sender, err_receiver) = mpsc::channel::<R>();
 
-        let receiver = Arc::new(Mutex::new(receiver));
+        let job_receiver = Arc::new(Mutex::new(job_receiver));
 
         let mut workers = Vec::with_capacity(size);
 
         for id in 0..size {
-            workers.push(Worker::new(id, Arc::clone(&receiver)));
+            workers.push(Worker::new(
+                id,
+                Arc::clone(&job_receiver),
+                err_sender.clone(),
+                err_handler,
+            ));
         }
 
         Self {
             workers,
-            sender: Some(sender),
+            sender: Some(job_sender),
+            err_receiver,
         }
     }
 
     #[allow(clippy::missing_panics_doc)]
-    pub fn execute<F>(&self, f: F)
+    #[allow(clippy::missing_errors_doc)]
+    pub fn execute<F>(&self, f: F) -> Result<R, TryRecvError>
     where
         F: FnOnce() -> Result<T, E> + Send + 'static,
     {
@@ -46,10 +57,15 @@ impl<T: 'static, E: Debug + 'static> ThreadPool<T, E> {
             .expect("Failed to get job sender")
             .send(job)
             .expect("Failed to send job");
+
+        self.err_receiver.try_recv().map_err(|e| match e {
+            TryRecvError::Empty => e,
+            TryRecvError::Disconnected => panic!("Worker disconnected"),
+        })
     }
 }
 
-impl<T: 'static, E: 'static + Debug> Drop for ThreadPool<T, E> {
+impl<T: 'static, E: 'static, R: Send> Drop for ThreadPool<T, E, R> {
     fn drop(&mut self) {
         drop(self.sender.take());
 
@@ -69,9 +85,11 @@ struct Worker {
 }
 
 impl Worker {
-    fn new<T: 'static, E: Debug + 'static>(
+    fn new<T: 'static, E: 'static, R: Send + 'static>(
         id: usize,
         receiver: Arc<Mutex<mpsc::Receiver<Job<T, E>>>>,
+        err_sender: mpsc::Sender<R>,
+        err_handler: fn(E) -> R,
     ) -> Self {
         let thread = thread::spawn(move || loop {
             let message = receiver
@@ -91,7 +109,9 @@ impl Worker {
                         "Worker {id} finished job successfully in {}ms.",
                         elapsed_time.as_millis()
                     ),
-                    Err(e) => println!("Worker {id} encountered an error executing job: {e:#?}"),
+                    Err(e) => err_sender
+                        .send(err_handler(e))
+                        .unwrap_or_else(|_| panic!("Failed to handle error in worker {id}")),
                 }
             } else {
                 println!("Worker {id} disconnected; shutting down.");

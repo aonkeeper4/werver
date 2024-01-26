@@ -17,24 +17,12 @@ i started with the template given by [the rust book chapter 20](https://doc.rust
 - ~~fix where the import errors come from~~ done! unless im missing other cases of this
 - generally clean stuff up (code quality review)
   - check whether i actually need all those `clone`s (im suspicious i do)
-  - read up on how to actually do multithreaded stuff in rust and rework as needed (surely it wont be too much :clueless:)
+  - read up on how to actually do multithreaded stuff in rust and rework as needed (surely it wont be too much :clueless:) (god this got . so much worse when i tried to implement proper error handling :catplant:)
   - tidy up apis
     - generally just "should this be public" and "are my function signatures cool and based or cringe as hell"
 - rework codegen in `#[route]` (im sure theres better ways to do everything i did)
   - just dicovered `quote_spanned` exists im sure its useful
-- do something about error handling in `HttpServer::listen`
-  - `ThreadPool` allows errors to be returned in the closure given to `execute` but only prints them atm
-  - really need ability for custom error handling i think. maybe just pass another closure to `execute` for that idk
-  - allow custom body for the `pool.execute` closure in `listen`?
-  - WAIT another attribute macro for that would be cool like you have a bunch of `#[route]`s and then a `#[error_handler]`
-    - maybe other handlers then?
-    - ok we're definitely doing this
-    - need:
-      - `#[not_found]` for 404 and the like
-      - `#[error_handler]` for handling errors
-      - more ?
-- put `HttpServer` into a builder pattern
-  - would be cool
+- ~~do something about error handling in `HttpServer::listen`~~ ok this is mostly implemented there are a few bugs to work out that i think are gonna be annoying to find tho ,,
 - add support for more actual web features
   - different request types
   - more fully-featured responses
