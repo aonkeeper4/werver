@@ -28,6 +28,11 @@ i started with the template given by [the rust book chapter 20](https://doc.rust
   - allow custom body for the `pool.execute` closure in `listen`?
   - WAIT another attribute macro for that would be cool like you have a bunch of `#[route]`s and then a `#[error_handler]`
     - maybe other handlers then?
+    - ok we're definitely doing this
+    - need:
+      - `#[not_found]` for 404 and the like
+      - `#[error_handler]` for handling errors
+      - more ?
 - put `HttpServer` into a builder pattern
   - would be cool
 - add support for more actual web features
