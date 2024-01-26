@@ -11,7 +11,7 @@ mod routes {
     use werver::http_server::{HttpStatus, Page, Response, RouteParseResult};
     use werver_route::route;
 
-    #[route(GET, "/" | "/home")]
+    #[route(GET, "/" | "/meow")]
     pub fn route_home() -> RouteParseResult {
         Ok(Response::new(
             HttpStatus::Ok,
@@ -21,10 +21,7 @@ mod routes {
 
     #[route(GET, "/error")]
     pub fn route_error() -> RouteParseResult {
-        Ok(Response::new(
-            HttpStatus::Ok,
-            Page::new("examples/basic/pages/nonexistent.html".to_string(), None),
-        ))
+        Err("oops".to_string())
     }
 
     #[route(GET, "/sleep")]
@@ -51,9 +48,9 @@ mod routes {
 
     #[route(GET, "/random")]
     pub fn route_random(low: i32, high: i32) -> RouteParseResult {
-        // if low == 69 || high == 69 {
-        //     return Err("nice error idiot".to_string());
-        // }
+        if low.abs() == 69 || high.abs() == 69 {
+            return Err("nice error idiot".to_string());
+        }
         let mut rng = thread_rng();
         let args = HashMap::from([
             ("result".to_string(), rng.gen_range(low..=high).to_string()),
