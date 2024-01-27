@@ -36,6 +36,7 @@ pub type QueryParseResult = Result<Response, String>;
 
 pub type HtmlArgs = HashMap<String, String>;
 
+#[derive(Debug, Clone)]
 pub struct Page {
     page: String,
     args: Option<HtmlArgs>,
@@ -48,7 +49,7 @@ impl Page {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ErrorPage {
     page: String,
     args: String,
@@ -71,6 +72,7 @@ impl From<ErrorPage> for Page {
 }
 
 #[repr(u32)]
+#[derive(Debug, Clone)]
 pub enum HttpStatus {
     Ok = 200,
     NotFound = 404,
@@ -85,6 +87,7 @@ impl ToString for HttpStatus {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Response {
     status_line: HttpStatus,
     page: Page,
@@ -107,7 +110,7 @@ impl NotFoundResponse {
         Self { page }
     }
 }
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ErrorResponse {
     page: ErrorPage,
 }
@@ -280,15 +283,17 @@ impl HttpServer {
             }
         }
 
+        let response = response.unwrap_or_else(|| Ok((self.not_found_handler.0)().into()));
+
         match response {
-            Some(Ok(Response {
+            Ok(Response {
                 status_line,
                 page:
                     Page {
                         page: filename,
                         args: preprocess_args,
                     },
-            })) => {
+            }) => {
                 let status_line = status_line.to_string();
                 let mut contents = fs::read_to_string(filename)?;
                 if let Some(args) = preprocess_args {
@@ -306,8 +311,7 @@ impl HttpServer {
 
                 Ok(())
             }
-            Some(Err(e)) => Err(ConnectionHandlingError::RouteParseError(e)),
-            None => self.handle_connection(stream, Some((self.not_found_handler.0)().into())),
+            Err(e) => Err(ConnectionHandlingError::RouteParseError(e)),
         }
     }
 
@@ -317,21 +321,49 @@ impl HttpServer {
 
     #[allow(clippy::missing_panics_doc)]
     pub fn listen(&self, port: &str, num_threads: usize) {
-        let listener = TcpListener::bind(port).expect("Failed to bind to port");
-        let pool = ThreadPool::new(num_threads, self.error_handler.0);
-
-        let mut prev_err: Option<Response> = None;
-        loop {
+        fn do_loop_iter(
+            server: &HttpServer,
+            pool: &ThreadPool<(), ConnectionHandlingError, ErrorResponse>,
+            listener: &TcpListener,
+            errs: &mut Vec<ErrorResponse>,
+        ) {
             let (stream, _) = listener
                 .accept()
                 .expect("Failed to get incoming TCP stream");
 
-            let self_clone = self.clone();
-            if let Ok(err) = pool.execute(move || self_clone.handle_connection(stream, prev_err)) {
-                prev_err = Some(err.into());
-            } else {
-                prev_err = None;
+            let server_clone = server.clone();
+
+            let res = match last_two(errs) {
+                (Some(e1), Some(e2)) if e1 != e2 => {
+                    let e = e1.clone();
+                    pool.execute(move || server_clone.handle_connection(stream, Some(e.into())))
+                }
+                (Some(e1), None) => {
+                    let e = e1.clone();
+                    pool.execute(move || server_clone.handle_connection(stream, Some(e.into())))
+                }
+                _ => pool.execute(move || server_clone.handle_connection(stream, None)),
             };
+            if let Ok(e) = res {
+                errs.push(e);
+                do_loop_iter(server, pool, listener, errs);
+            }
+        }
+
+        let listener = TcpListener::bind(port).expect("Failed to bind to port");
+        let pool = ThreadPool::new(num_threads, self.error_handler.0);
+
+        loop {
+            do_loop_iter(self, &pool, &listener, &mut vec![]);
         }
     }
+}
+
+fn last_two<T>(v: &Vec<T>) -> (Option<&T>, Option<&T>) {
+    let len = v.len();
+
+    let a = len.checked_sub(1).and_then(|x| v.get(x));
+    let b = len.checked_sub(2).and_then(|x| v.get(x));
+
+    (a, b)
 }

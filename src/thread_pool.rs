@@ -109,9 +109,12 @@ impl Worker {
                         "Worker {id} finished job successfully in {}ms.",
                         elapsed_time.as_millis()
                     ),
-                    Err(e) => err_sender
-                        .send(err_handler(e))
-                        .unwrap_or_else(|_| panic!("Failed to handle error in worker {id}")),
+                    Err(e) => {
+                        println!("Worker {id} encountered an error; handling.");
+                        err_sender
+                            .send(err_handler(e))
+                            .unwrap_or_else(|_| panic!("Failed to handle error in worker {id}"));
+                    }
                 }
             } else {
                 println!("Worker {id} disconnected; shutting down.");

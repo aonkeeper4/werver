@@ -22,7 +22,9 @@ i started with the template given by [the rust book chapter 20](https://doc.rust
     - generally just "should this be public" and "are my function signatures cool and based or cringe as hell"
 - rework codegen in `#[route]` (im sure theres better ways to do everything i did)
   - just dicovered `quote_spanned` exists im sure its useful
-- ~~do something about error handling in `HttpServer::listen`~~ ok this is mostly implemented there are a few bugs to work out that i think are gonna be annoying to find tho ,,
+- ~~do something about error handling in `HttpServer::listen`~~ done! you pass an `ErrorHandler` and a`NotFoundHandler` to `HttpServer::new` and if it errors it displays the page given by the `ErrorHandler` and if it can't find the requested route it displays the one given by the `NotFoundHandler`
+  - however these are served at the route where the error happens
+  - this may be undesirable potentially but idk how to make them take u to a designated endpoint so u have to live with it for now :goodvibes:
 - add support for more actual web features
   - different request types
   - more fully-featured responses
