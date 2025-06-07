@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::fs;
+use std::fmt::Display;
+use std::{fs, iter};
 use std::io::{self, prelude::*, BufReader};
 use std::net::{TcpListener, TcpStream};
 use std::str::FromStr;
@@ -20,13 +21,14 @@ impl From<io::Error> for ConnectionHandlingError {
     }
 }
 
-impl ToString for ConnectionHandlingError {
-    fn to_string(&self) -> String {
-        match self {
+impl Display for ConnectionHandlingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
             Self::IOError(e) => e.to_string(),
             Self::MalformedRequest(e) | Self::RouteParseError(e) => e.clone(),
             Self::NonexistentRoute(r) => format!("Nonexistent route: `{r}`"),
-        }
+        };
+        write!(f, "{}", str)
     }
 }
 
@@ -78,12 +80,13 @@ pub enum HttpStatus {
     NotFound = 404,
 }
 
-impl ToString for HttpStatus {
-    fn to_string(&self) -> String {
-        match self {
+impl Display for HttpStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
             Self::Ok => "HTTP/1.1 200 OK".to_string(),
             Self::NotFound => "HTTP/1.1 404 NOT FOUND".to_string(),
-        }
+        };
+        write!(f, "{}", str)
     }
 }
 
@@ -110,6 +113,7 @@ impl NotFoundResponse {
         Self { page }
     }
 }
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ErrorResponse {
     page: ErrorPage,
@@ -179,6 +183,7 @@ impl Route {
         }
     }
 }
+
 #[derive(Clone)]
 pub struct NotFoundHandler(fn() -> NotFoundResponse);
 
@@ -260,30 +265,19 @@ impl HttpServer {
             )));
         };
 
-        let mut response: Option<QueryParseResult> = None;
-        if let Some(resp) = r#override {
-            response = Some(Ok(resp));
+        let response = if let Some(resp) = r#override {
+            Ok(resp)
+        } else if let Some((rest, query_handler)) = self.routes.iter()
+            .filter(|route| route.request_type == request_type)
+            .flat_map(|route| route.prefixes.iter()
+                .filter_map(|prefix| matches_prefix(route_str, prefix))
+                .zip(iter::repeat(route.query_handler))
+            ).next() {
+            let query_handler_args = rest.split('/').skip(1).map(String::from).collect();
+            query_handler(query_handler_args)
         } else {
-            'outer: for route in &self.routes {
-                if request_type == route.request_type {
-                    for prefix in &route.prefixes {
-                        if let Some(rest) = matches_prefix(route_str, prefix) {
-                            let query_handler_args: Vec<_> =
-                                rest.split('/').skip(1).map(String::from).collect();
-                            // if let Some(s) = query_handler_args.last() {
-                            //     if s.is_empty() {
-                            //         query_handler_args.pop();
-                            //     }
-                            // }
-                            response = Some((route.query_handler)(query_handler_args));
-                            break 'outer;
-                        }
-                    }
-                }
-            }
-        }
-
-        let response = response.unwrap_or_else(|| Ok((self.not_found_handler.0)().into()));
+            Ok(self.not_found_handler.0().into())
+        };
 
         match response {
             Ok(Response {
@@ -310,7 +304,7 @@ impl HttpServer {
                 stream.flush()?;
 
                 Ok(())
-            }
+            },
             Err(e) => Err(ConnectionHandlingError::RouteParseError(e)),
         }
     }
